@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.SerialMonitor" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+</resources>
