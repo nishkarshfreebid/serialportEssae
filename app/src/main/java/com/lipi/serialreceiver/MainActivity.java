@@ -33,7 +33,7 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity implements SerialInputOutputManager.Listener {
 
     private static final String TAG = "SerialMonitor";
-    private static final String ACTION_USB_PERMISSION = "com.example.serialmonitor.USB_PERMISSION";
+    private static final String ACTION_USB_PERMISSION = "com.lipi.serialreceiver.USB_PERMISSION";
     private UsbManager usbManager;
     private UsbSerialPort usbSerialPort;
     private SerialInputOutputManager ioManager;
