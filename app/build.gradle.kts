@@ -39,6 +39,7 @@ android {
 dependencies {
     implementation(libs.usb.serial.for1.android)
     implementation(libs.appcompat)
+    implementation(files("libs/DeviceAPI_V2.0.3_20260313.aar"))
     implementation(libs.material)
     implementation(libs.constraintlayout)
     implementation(libs.navigation.fragment)

@@ -1,3 +1,11 @@
 <resources>
     <color name="ic_launcher_background">#1B1B1B</color>
+
+    <color name="status_match">#2E7D32</color>
+    <color name="status_mismatch">#C62828</color>
+    <color name="status_pending">#F9A825</color>
+    <color name="status_unknown">#616161</color>
+    <color name="panel_bg">#1E1E1E</color>
+    <color name="panel_text">#EEEEEE</color>
+    <color name="panel_text_secondary">#AAAAAA</color>
 </resources>
