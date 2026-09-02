@@ -12,488 +12,1483 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
-import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 
 import com.hoho.android.usbserial.driver.ProbeTable;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
-import com.lipi.serialreceiver.inventory.InventoryRepository;
-import com.lipi.serialreceiver.model.InventoryItem;
-import com.lipi.serialreceiver.model.ScanResult;
+import com.lipi.serialreceiver.inventory.JewelleryRepository;
+import com.lipi.serialreceiver.model.JewelleryItem;
 import com.lipi.serialreceiver.rfid.RfidManager;
-import com.lipi.serialreceiver.scale.WeightParser;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements SerialInputOutputManager.Listener {
+public class MainActivity extends AppCompatActivity
+        implements SerialInputOutputManager.Listener {
 
-    private static final String TAG = "SerialMonitor";
-    private static final String ACTION_USB_PERMISSION = "com.lipi.serialreceiver.USB_PERMISSION";
+    private static final String TAG = "JewelleryMonitor";
 
-    /** Allowed difference (kg) between expected item weight and live scale reading to count as a MATCH. */
-    private static final double WEIGHT_TOLERANCE_KG = 0.05;
+    private static final String ACTION_USB_PERMISSION =
+            "com.lipi.serialreceiver.USB_PERMISSION";
 
-    // --- Scale (USB-serial) ---
+    /*
+     * Weight tolerance in grams.
+     *
+     * Example:
+     * Expected = 48.636 g
+     * Actual   = 50.000 g
+     * Difference = 1.364 g
+     * Result = MATCH
+     */
+    private static final double WEIGHT_TOLERANCE_GRAMS = 2.0;
+
+    // ============================================================
+    // SCALE
+    // ============================================================
+
     private UsbManager usbManager;
     private UsbSerialPort usbSerialPort;
     private SerialInputOutputManager ioManager;
-    private final int[] baudRates = {300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200};
 
-    // --- RFID (Chainway UHF) ---
+    private final int[] baudRates = {
+            300,
+            1200,
+            2400,
+            4800,
+            9600,
+            19200,
+            38400,
+            57600,
+            115200
+    };
+
+    // ============================================================
+    // RFID
+    // ============================================================
+
     private RfidManager rfidManager;
 
-    // --- Combined scan state ---
-    private String lastEpc = null;
-    private Double lastWeightKg = null;
+    // ============================================================
+    // CURRENT SCAN
+    // ============================================================
 
-    // --- Views ---
+    private String currentEpc = null;
+    private JewelleryItem currentItem = null;
+
+    /*
+     * Latest weight received from scale in grams.
+     */
+    private Double currentWeightGrams = null;
+
+    /*
+     * Keep all EPCs that have been scanned.
+     *
+     * EPC -> ScanRecord
+     */
+    private final Map<String, ScanRecord> scannedTags =
+            new HashMap<>();
+
+    // ============================================================
+    // UI
+    // ============================================================
+
     private TextView statusText;
     private TextView dataText;
-    private ScrollView scrollView;
+
     private Spinner baudSpinner;
+
     private Button connectButton;
     private Button clearButton;
+
     private Button sendButton;
     private EditText sendEditText;
 
     private TextView rfidStatusText;
     private Button rfidToggleButton;
 
-    private View verdictCard;
-    private TextView verdictLabel;
-    private TextView itemNameText;
-    private TextView skuText;
     private TextView epcText;
-    private TextView stockText;
+    private TextView itemNameText;
+    private TextView itemTypeText;
+    private TextView materialText;
+    private TextView purityText;
     private TextView expectedWeightText;
+
     private TextView liveWeightText;
+    private TextView resultText;
+    private TextView differenceText;
+
     private Button resetScanButton;
 
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private TextView scannedTagsText;
 
-    private final BroadcastReceiver usbReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (ACTION_USB_PERMISSION.equals(action)) {
-                synchronized (this) {
-                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-                    boolean granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false);
-                    if (granted && device != null) {
-                        openConnection(device);
-                    } else {
-                        setStatus("Permission denied for device");
+    // ============================================================
+    // HANDLER
+    // ============================================================
+
+    private final Handler mainHandler =
+            new Handler(Looper.getMainLooper());
+
+    // ============================================================
+    // SERIAL BUFFER
+    // ============================================================
+
+    private final StringBuilder serialBuffer =
+            new StringBuilder();
+
+    // ============================================================
+    // USB RECEIVER
+    // ============================================================
+
+    private final BroadcastReceiver usbReceiver =
+            new BroadcastReceiver() {
+
+                @Override
+                public void onReceive(Context context, Intent intent) {
+
+                    String action = intent.getAction();
+
+                    if (ACTION_USB_PERMISSION.equals(action)) {
+
+                        synchronized (this) {
+
+                            UsbDevice device =
+                                    intent.getParcelableExtra(
+                                            UsbManager.EXTRA_DEVICE
+                                    );
+
+                            boolean granted =
+                                    intent.getBooleanExtra(
+                                            UsbManager.EXTRA_PERMISSION_GRANTED,
+                                            false
+                                    );
+
+                            if (granted && device != null) {
+
+                                openConnection(device);
+
+                            } else {
+
+                                setStatus(
+                                        "Permission denied for device"
+                                );
+                            }
+                        }
+
+                    } else if (
+                            UsbManager.ACTION_USB_DEVICE_ATTACHED
+                                    .equals(action)) {
+
+                        setStatus(
+                                "Device attached — tap Connect"
+                        );
+
+                    } else if (
+                            UsbManager.ACTION_USB_DEVICE_DETACHED
+                                    .equals(action)) {
+
+                        setStatus("Device detached");
+
+                        closeConnection();
                     }
                 }
-            } else if (UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(action)) {
-                setStatus("Device attached — tap Connect");
-            } else if (UsbManager.ACTION_USB_DEVICE_DETACHED.equals(action)) {
-                setStatus("Device detached");
-                closeConnection();
-            }
-        }
-    };
+            };
+
+    // ============================================================
+    // ACTIVITY
+    // ============================================================
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
 
         bindViews();
-        usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+
+        usbManager =
+                (UsbManager) getSystemService(
+                        Context.USB_SERVICE
+                );
 
         setupBaudSpinner();
-        setupScaleControls();
-        setupRfid();
-        renderScanResult(currentScanResult());
 
-        // Register USB broadcast receiver (permission result + attach/detach) for the scale
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(ACTION_USB_PERMISSION);
-        filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
-        filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+        setupScaleControls();
+
+        setupRfid();
+
+        showEmptyScan();
+
+        // --------------------------------------------------------
+        // USB receiver
+        // --------------------------------------------------------
+
+        IntentFilter filter =
+                new IntentFilter();
+
+        filter.addAction(
+                ACTION_USB_PERMISSION
+        );
+
+        filter.addAction(
+                UsbManager.ACTION_USB_DEVICE_ATTACHED
+        );
+
+        filter.addAction(
+                UsbManager.ACTION_USB_DEVICE_DETACHED
+        );
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+
+            registerReceiver(
+                    usbReceiver,
+                    filter,
+                    Context.RECEIVER_NOT_EXPORTED
+            );
+
         } else {
-            registerReceiver(usbReceiver, filter);
+
+            registerReceiver(
+                    usbReceiver,
+                    filter
+            );
         }
 
-        // If the app was launched via the USB_DEVICE_ATTACHED intent filter
         handleLaunchIntent(getIntent());
     }
 
+    // ============================================================
+    // BIND UI
+    // ============================================================
+
     private void bindViews() {
-        statusText = findViewById(R.id.statusText);
-        dataText = findViewById(R.id.dataText);
-        scrollView = null; // dataText now scrolls itself inside a fixed-height box
-        baudSpinner = findViewById(R.id.baudSpinner);
-        connectButton = findViewById(R.id.connectButton);
-        clearButton = findViewById(R.id.clearButton);
-        sendButton = findViewById(R.id.sendButton);
-        sendEditText = findViewById(R.id.sendEditText);
 
-        rfidStatusText = findViewById(R.id.rfidStatusText);
-        rfidToggleButton = findViewById(R.id.rfidToggleButton);
+        statusText = findViewById(
+                R.id.statusText
+        );
 
-        verdictCard = findViewById(R.id.verdictCard);
-        verdictLabel = findViewById(R.id.verdictLabel);
-        itemNameText = findViewById(R.id.itemNameText);
-        skuText = findViewById(R.id.skuText);
-        epcText = findViewById(R.id.epcText);
-        stockText = findViewById(R.id.stockText);
-        expectedWeightText = findViewById(R.id.expectedWeightText);
-        liveWeightText = findViewById(R.id.liveWeightText);
-        resetScanButton = findViewById(R.id.resetScanButton);
+        dataText = findViewById(
+                R.id.dataText
+        );
+
+        baudSpinner = findViewById(
+                R.id.baudSpinner
+        );
+
+        connectButton = findViewById(
+                R.id.connectButton
+        );
+
+        clearButton = findViewById(
+                R.id.clearButton
+        );
+
+        sendButton = findViewById(
+                R.id.sendButton
+        );
+
+        sendEditText = findViewById(
+                R.id.sendEditText
+        );
+
+        rfidStatusText = findViewById(
+                R.id.rfidStatusText
+        );
+
+        rfidToggleButton = findViewById(
+                R.id.rfidToggleButton
+        );
+
+        epcText = findViewById(
+                R.id.epcText
+        );
+
+        itemNameText = findViewById(
+                R.id.itemNameText
+        );
+
+        itemTypeText = findViewById(
+                R.id.itemTypeText
+        );
+
+        materialText = findViewById(
+                R.id.materialText
+        );
+
+        purityText = findViewById(
+                R.id.purityText
+        );
+
+        expectedWeightText = findViewById(
+                R.id.expectedWeightText
+        );
+
+        liveWeightText = findViewById(
+                R.id.liveWeightText
+        );
+
+        resultText = findViewById(
+                R.id.resultText
+        );
+
+        differenceText = findViewById(
+                R.id.differenceText
+        );
+
+        resetScanButton = findViewById(
+                R.id.resetScanButton
+        );
+
+        scannedTagsText = findViewById(
+                R.id.scannedTagsText
+        );
     }
 
-    // =====================================================================
-    // Scale (USB-serial) setup — unchanged behavior, plus weight parsing
-    // =====================================================================
-
-    private void setupScaleControls() {
-        connectButton.setOnClickListener(v -> {
-            if (usbSerialPort == null) {
-                findAndConnect();
-            } else {
-                closeConnection();
-            }
-        });
-
-        clearButton.setOnClickListener(v -> dataText.setText(""));
-
-        sendButton.setOnClickListener(v -> sendData());
-    }
+    // ============================================================
+    // BAUD
+    // ============================================================
 
     private void setupBaudSpinner() {
-        String[] labels = new String[baudRates.length];
-        for (int i = 0; i < baudRates.length; i++) labels[i] = baudRates[i] + " baud";
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        baudSpinner.setAdapter(adapter);
+
+        String[] labels =
+                new String[baudRates.length];
+
         for (int i = 0; i < baudRates.length; i++) {
+
+            labels[i] =
+                    baudRates[i] + " baud";
+        }
+
+        ArrayAdapter<String> adapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout.simple_spinner_item,
+                        labels
+                );
+
+        adapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item
+        );
+
+        baudSpinner.setAdapter(adapter);
+
+        // Default = 9600
+        for (int i = 0; i < baudRates.length; i++) {
+
             if (baudRates[i] == 9600) {
+
                 baudSpinner.setSelection(i);
+
                 break;
             }
         }
     }
 
-    /** Uses a custom + default probe table so CH340/CH341 and friends are recognized. */
-    private UsbSerialDriver findDriver() {
-        ProbeTable customTable = UsbSerialProber.getDefaultProbeTable();
-        UsbSerialProber prober = new UsbSerialProber(customTable);
+    // ============================================================
+    // SCALE CONTROLS
+    // ============================================================
 
-        List<UsbSerialDriver> drivers = prober.findAllDrivers(usbManager);
-        if (drivers.isEmpty()) {
-            for (UsbDevice device : usbManager.getDeviceList().values()) {
-                Log.d(TAG, "Unrecognized USB device: vendorId=" + device.getVendorId()
-                        + " productId=" + device.getProductId());
+    private void setupScaleControls() {
+
+        connectButton.setOnClickListener(v -> {
+
+            if (usbSerialPort == null) {
+
+                findAndConnect();
+
+            } else {
+
+                closeConnection();
             }
+        });
+
+        clearButton.setOnClickListener(v -> {
+
+            dataText.setText("");
+
+            serialBuffer.setLength(0);
+        });
+
+        sendButton.setOnClickListener(v ->
+                sendData()
+        );
+    }
+
+    // ============================================================
+    // FIND SERIAL DEVICE
+    // ============================================================
+
+    private UsbSerialDriver findDriver() {
+
+        ProbeTable customTable =
+                UsbSerialProber.getDefaultProbeTable();
+
+        UsbSerialProber prober =
+                new UsbSerialProber(customTable);
+
+        List<UsbSerialDriver> drivers =
+                prober.findAllDrivers(
+                        usbManager
+                );
+
+        if (drivers.isEmpty()) {
+
+            for (UsbDevice device :
+                    usbManager.getDeviceList().values()) {
+
+                Log.d(
+                        TAG,
+                        "Unrecognized USB device: "
+                                + "vendorId="
+                                + device.getVendorId()
+                                + " productId="
+                                + device.getProductId()
+                );
+            }
+
             return null;
         }
+
         return drivers.get(0);
     }
 
+    // ============================================================
+    // CONNECT
+    // ============================================================
+
     private void findAndConnect() {
-        UsbSerialDriver driver = findDriver();
+
+        UsbSerialDriver driver =
+                findDriver();
+
         if (driver == null) {
-            setStatus("No compatible serial adapter found. Plug in the UGREEN USB-RS232 cable.");
-            Toast.makeText(this, "No serial device found", Toast.LENGTH_LONG).show();
+
+            setStatus(
+                    "No compatible serial adapter found."
+            );
+
+            Toast.makeText(
+                    this,
+                    "No serial device found",
+                    Toast.LENGTH_LONG
+            ).show();
+
             return;
         }
 
-        UsbDevice device = driver.getDevice();
+        UsbDevice device =
+                driver.getDevice();
+
         if (!usbManager.hasPermission(device)) {
-            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    ? PendingIntent.FLAG_MUTABLE
-                    : 0;
-            PendingIntent permissionIntent = PendingIntent.getBroadcast(
-                    this, 0, new Intent(ACTION_USB_PERMISSION), flags);
-            usbManager.requestPermission(device, permissionIntent);
-            setStatus("Requesting USB permission...");
+
+            int flags =
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                            ? PendingIntent.FLAG_MUTABLE
+                            : 0;
+
+            PendingIntent permissionIntent =
+                    PendingIntent.getBroadcast(
+                            this,
+                            0,
+                            new Intent(
+                                    ACTION_USB_PERMISSION
+                            ),
+                            flags
+                    );
+
+            usbManager.requestPermission(
+                    device,
+                    permissionIntent
+            );
+
+            setStatus(
+                    "Requesting USB permission..."
+            );
+
         } else {
+
             openConnection(device);
         }
     }
 
-    private void openConnection(UsbDevice device) {
+    // ============================================================
+    // OPEN SERIAL CONNECTION
+    // ============================================================
+
+    private void openConnection(
+            UsbDevice device
+    ) {
+
         UsbSerialDriver foundDriver = null;
-        for (UsbSerialDriver d : UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)) {
+
+        for (
+                UsbSerialDriver d :
+                UsbSerialProber
+                        .getDefaultProber()
+                        .findAllDrivers(usbManager)
+        ) {
+
             if (d.getDevice().equals(device)) {
+
                 foundDriver = d;
+
                 break;
             }
         }
+
         if (foundDriver == null) {
-            setStatus("Driver not found for device");
+
+            setStatus(
+                    "Driver not found for device"
+            );
+
             return;
         }
 
-        android.hardware.usb.UsbDeviceConnection connection = usbManager.openDevice(device);
+        android.hardware.usb.UsbDeviceConnection connection =
+                usbManager.openDevice(device);
+
         if (connection == null) {
-            setStatus("Failed to open device connection");
+
+            setStatus(
+                    "Failed to open device connection"
+            );
+
             return;
         }
 
-        usbSerialPort = foundDriver.getPorts().get(0);
-        try {
-            usbSerialPort.open(connection);
-            int baud = baudRates[baudSpinner.getSelectedItemPosition()];
-            usbSerialPort.setParameters(baud, UsbSerialPort.DATABITS_8,
-                    UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+        usbSerialPort =
+                foundDriver.getPorts().get(0);
 
-            ioManager = new SerialInputOutputManager(usbSerialPort, this);
+        try {
+
+            usbSerialPort.open(connection);
+
+            int baud =
+                    baudRates[
+                            baudSpinner
+                                    .getSelectedItemPosition()
+                            ];
+
+            usbSerialPort.setParameters(
+                    baud,
+                    UsbSerialPort.DATABITS_8,
+                    UsbSerialPort.STOPBITS_1,
+                    UsbSerialPort.PARITY_NONE
+            );
+
+            ioManager =
+                    new SerialInputOutputManager(
+                            usbSerialPort,
+                            this
+                    );
+
             ioManager.start();
 
-            setStatus("Scale connected @ " + baud + " baud (" + device.getDeviceName() + ")");
-            connectButton.setText("Disconnect");
+            setStatus(
+                    "Scale connected @ "
+                            + baud
+                            + " baud ("
+                            + device.getDeviceName()
+                            + ")"
+            );
+
+            connectButton.setText(
+                    "Disconnect"
+            );
+
         } catch (IOException e) {
-            Log.e(TAG, "Error opening port", e);
-            setStatus("Error opening port: " + e.getMessage());
+
+            Log.e(
+                    TAG,
+                    "Error opening port",
+                    e
+            );
+
+            setStatus(
+                    "Error opening port: "
+                            + e.getMessage()
+            );
+
             closeConnection();
         }
     }
 
+    // ============================================================
+    // CLOSE SERIAL
+    // ============================================================
+
     private void closeConnection() {
+
         if (ioManager != null) {
+
             ioManager.stop();
+
             ioManager = null;
         }
+
         if (usbSerialPort != null) {
+
             try {
+
                 usbSerialPort.close();
+
             } catch (IOException ignored) {
             }
+
             usbSerialPort = null;
         }
-        connectButton.setText("Connect");
-        setStatus("Disconnected");
+
+        connectButton.setText(
+                "Connect"
+        );
+
+        setStatus(
+                "Disconnected"
+        );
     }
 
+    // ============================================================
+    // SEND SERIAL DATA
+    // ============================================================
+
     private void sendData() {
-        String text = sendEditText.getText().toString();
-        if (text.isEmpty() || usbSerialPort == null) return;
+
+        String text =
+                sendEditText
+                        .getText()
+                        .toString();
+
+        if (
+                text.isEmpty()
+                        || usbSerialPort == null
+        ) {
+
+            return;
+        }
+
         try {
-            usbSerialPort.write(text.getBytes(StandardCharsets.UTF_8), 1000);
+
+            usbSerialPort.write(
+                    text.getBytes(
+                            StandardCharsets.UTF_8
+                    ),
+                    1000
+            );
+
             sendEditText.setText("");
+
         } catch (IOException e) {
-            Toast.makeText(this, "Send failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+
+            Toast.makeText(
+                    this,
+                    "Send failed: "
+                            + e.getMessage(),
+                    Toast.LENGTH_SHORT
+            ).show();
         }
     }
 
-    private void setStatus(String s) {
-        mainHandler.post(() -> statusText.setText(s));
+    // ============================================================
+    // STATUS
+    // ============================================================
+
+    private void setStatus(String text) {
+
+        mainHandler.post(() ->
+                statusText.setText(text)
+        );
     }
 
-    private void appendData(String s) {
-        mainHandler.post(() -> {
-            dataText.append(s);
-        });
-    }
-
-    // --- SerialInputOutputManager.Listener callbacks (background thread) ---
+    // ============================================================
+    // SERIAL DATA
+    // ============================================================
 
     @Override
     public void onNewData(byte[] data) {
-        String text = new String(data, StandardCharsets.UTF_8);
-        appendData(text);
 
-        // Try to parse a weight out of each incoming chunk. The AX-620 typically sends
-        // one line per stable reading; partial chunks that don't contain a number are ignored.
-        for (String line : text.split("\\r?\\n")) {
-            WeightParser.ParsedWeight parsed = WeightParser.parse(line);
-            if (parsed != null && parsed.stable) {
-                onWeightRead(parsed.weightKg);
-            }
-        }
-    }
+        String text =
+                new String(
+                        data,
+                        StandardCharsets.UTF_8
+                );
 
-    @Override
-    public void onRunError(Exception e) {
-        Log.e(TAG, "Serial connection lost", e);
-        setStatus("Connection lost: " + e.getMessage());
-        mainHandler.post(this::closeConnection);
-    }
+        mainHandler.post(() -> {
 
-    // =====================================================================
-    // RFID (Chainway UHF) setup
-    // =====================================================================
+            serialBuffer.append(text);
 
-    private void setupRfid() {
-        rfidManager = new RfidManager();
-        rfidManager.setListener(new RfidManager.Listener() {
-            @Override
-            public void onTagRead(String epc, String rssi) {
-                mainHandler.post(() -> onTagScanned(epc));
-            }
+            int newlineIndex;
 
-            @Override
-            public void onError(String message) {
-                mainHandler.post(() -> {
-                    rfidStatusText.setText("RFID: error — " + message);
-                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
-                });
-            }
-        });
+            while (
+                    (newlineIndex =
+                            serialBuffer.indexOf("\n"))
+                            >= 0
+            ) {
 
-        boolean ready = rfidManager.init(this);
-        rfidStatusText.setText(ready ? "RFID: ready" : "RFID: unavailable on this device");
-        rfidToggleButton.setEnabled(ready);
+                String line =
+                        serialBuffer
+                                .substring(
+                                        0,
+                                        newlineIndex
+                                )
+                                .trim();
 
-        rfidToggleButton.setOnClickListener(v -> {
-            if (rfidManager.isScanning()) {
-                rfidManager.stopScan();
-                rfidToggleButton.setText("Start Scan");
-                rfidStatusText.setText("RFID: stopped");
-            } else {
-                boolean started = rfidManager.startContinuousScan();
-                if (started) {
-                    rfidToggleButton.setText("Stop Scan");
-                    rfidStatusText.setText("RFID: scanning...");
+                serialBuffer.delete(
+                        0,
+                        newlineIndex + 1
+                );
+
+                if (!line.isEmpty()) {
+
+                    processScaleLine(line);
                 }
             }
         });
-
-        resetScanButton.setOnClickListener(v -> resetScan());
     }
 
-    /** Called (on main thread) whenever the RFID reader picks up a tag. */
-    private void onTagScanned(String epc) {
-        if (epc == null || epc.equals(lastEpc)) return; // same tag repeatedly in continuous mode — ignore
-        lastEpc = epc;
-        lastWeightKg = null; // require a fresh weight reading for this newly scanned item
-        renderScanResult(currentScanResult());
-    }
+    // ============================================================
+    // SCALE LINE
+    // ============================================================
 
-    /** Called (on main thread, via onNewData) whenever the scale reports a stable weight. */
-    private void onWeightRead(double weightKg) {
-        lastWeightKg = weightKg;
-        renderScanResult(currentScanResult());
-    }
+    private void processScaleLine(
+            String line
+    ) {
 
-    private void resetScan() {
-        lastEpc = null;
-        lastWeightKg = null;
-        renderScanResult(currentScanResult());
-    }
+        /*
+         * Example scale data:
+         *
+         * 48.709 48.636 0.074
+         *
+         * We want:
+         *
+         * 48.636
+         *
+         * which is the SECOND value.
+         */
 
-    private ScanResult currentScanResult() {
-        InventoryItem item = lastEpc != null ? InventoryRepository.findByEpc(lastEpc) : null;
-        return new ScanResult(lastEpc, item, lastWeightKg, WEIGHT_TOLERANCE_KG);
-    }
+        String[] values =
+                line.trim().split("\\s+");
 
-    // =====================================================================
-    // UI rendering for the verdict card
-    // =====================================================================
+        // Keep raw serial data visible.
+        dataText.setText(line);
 
-    private void renderScanResult(ScanResult result) {
-        epcText.setText("EPC: " + (result.getEpc() != null ? result.getEpc() : "—"));
+        if (values.length < 2) {
 
-        switch (result.getVerdict()) {
-            case AWAITING_TAG:
-                setVerdictCard(R.color.status_unknown, "AWAITING TAG");
-                itemNameText.setText("Item: —");
-                skuText.setText("SKU: —");
-                stockText.setText("In stock: —");
-                expectedWeightText.setText("—");
-                liveWeightText.setText("—");
-                break;
+            return;
+        }
 
-            case UNKNOWN_TAG:
-                setVerdictCard(R.color.status_unknown, "UNKNOWN TAG");
-                itemNameText.setText("Item: not found in inventory");
-                skuText.setText("SKU: —");
-                stockText.setText("In stock: —");
-                expectedWeightText.setText("—");
-                liveWeightText.setText(formatWeight(result.getWeightKg()));
-                break;
+        try {
 
-            case AWAITING_WEIGHT: {
-                InventoryItem item = result.getItem();
-                setVerdictCard(R.color.status_pending, "PLACE ITEM ON SCALE");
-                itemNameText.setText("Item: " + item.getItemName());
-                skuText.setText("SKU: " + item.getSku());
-                stockText.setText("In stock: " + item.getStockQty());
-                expectedWeightText.setText(formatWeight(item.getExpectedWeightKg()));
-                liveWeightText.setText("—");
-                break;
+            double weight =
+                    Double.parseDouble(
+                            values[1]
+                    );
+
+            /*
+             * Scale value is being treated as grams.
+             */
+            currentWeightGrams = weight;
+
+            liveWeightText.setText(
+                    String.format(
+                            Locale.US,
+                            "%.3f g",
+                            weight
+                    )
+            );
+
+            /*
+             * If an RFID tag is already selected,
+             * compare the new scale weight.
+             */
+            if (currentItem != null) {
+
+                evaluateCurrentTag();
             }
 
-            case MATCH: {
-                InventoryItem item = result.getItem();
-                setVerdictCard(R.color.status_match, "MATCH ✓");
-                itemNameText.setText("Item: " + item.getItemName());
-                skuText.setText("SKU: " + item.getSku());
-                stockText.setText("In stock: " + item.getStockQty());
-                expectedWeightText.setText(formatWeight(item.getExpectedWeightKg()));
-                liveWeightText.setText(formatWeight(result.getWeightKg()));
-                break;
-            }
+        } catch (NumberFormatException e) {
 
-            case MISMATCH: {
-                InventoryItem item = result.getItem();
-                setVerdictCard(R.color.status_mismatch, "MISMATCH ✗");
-                itemNameText.setText("Item: " + item.getItemName());
-                skuText.setText("SKU: " + item.getSku());
-                stockText.setText("In stock: " + item.getStockQty());
-                expectedWeightText.setText(formatWeight(item.getExpectedWeightKg()));
-                liveWeightText.setText(formatWeight(result.getWeightKg()));
-                break;
-            }
+            Log.w(
+                    TAG,
+                    "Unable to parse scale weight: "
+                            + line
+            );
         }
     }
 
-    private void setVerdictCard(int colorRes, String label) {
-        verdictCard.setBackgroundColor(ContextCompat.getColor(this, colorRes));
-        verdictLabel.setText(label);
-    }
-
-    private String formatWeight(Double kg) {
-        if (kg == null) return "—";
-        return String.format(Locale.US, "%.3f kg", kg);
-    }
-
-    // =====================================================================
-    // Lifecycle
-    // =====================================================================
+    // ============================================================
+    // SERIAL ERROR
+    // ============================================================
 
     @Override
-    protected void onNewIntent(Intent intent) {
+    public void onRunError(Exception e) {
+
+        Log.e(
+                TAG,
+                "Serial connection lost",
+                e
+        );
+
+        setStatus(
+                "Connection lost: "
+                        + e.getMessage()
+        );
+
+        mainHandler.post(
+                this::closeConnection
+        );
+    }
+
+    // ============================================================
+    // RFID SETUP
+    // ============================================================
+
+    private void setupRfid() {
+
+        rfidManager =
+                new RfidManager();
+
+        rfidManager.setListener(
+                new RfidManager.Listener() {
+
+                    @Override
+                    public void onTagRead(
+                            String epc,
+                            String rssi
+                    ) {
+
+                        mainHandler.post(() ->
+                                onTagScanned(epc)
+                        );
+                    }
+
+                    @Override
+                    public void onError(
+                            String message
+                    ) {
+
+                        mainHandler.post(() -> {
+
+                            rfidStatusText.setText(
+                                    "RFID: error — "
+                                            + message
+                            );
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    message,
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        });
+                    }
+                }
+        );
+
+        boolean ready =
+                rfidManager.init(this);
+
+        rfidStatusText.setText(
+                ready
+                        ? "RFID: ready"
+                        : "RFID: unavailable on this device"
+        );
+
+        rfidToggleButton.setEnabled(
+                ready
+        );
+
+        rfidToggleButton.setOnClickListener(
+                v -> {
+
+                    if (rfidManager.isScanning()) {
+
+                        rfidManager.stopScan();
+
+                        rfidToggleButton.setText(
+                                "Start Scan"
+                        );
+
+                        rfidStatusText.setText(
+                                "RFID: stopped"
+                        );
+
+                    } else {
+
+                        boolean started =
+                                rfidManager
+                                        .startContinuousScan();
+
+                        if (started) {
+
+                            rfidToggleButton.setText(
+                                    "Stop Scan"
+                            );
+
+                            rfidStatusText.setText(
+                                    "RFID: scanning..."
+                            );
+                        }
+                    }
+                }
+        );
+
+        resetScanButton.setOnClickListener(
+                v -> resetCurrentTag()
+        );
+    }
+
+    // ============================================================
+    // RFID TAG SCANNED
+    // ============================================================
+
+    private void onTagScanned(
+            String epc
+    ) {
+
+        if (
+                epc == null
+                        || epc.trim().isEmpty()
+        ) {
+
+            return;
+        }
+
+        epc =
+                epc.trim().toUpperCase();
+
+        /*
+         * Find jewellery by EPC.
+         */
+        JewelleryItem item =
+                JewelleryRepository.findByEpc(
+                        epc
+                );
+
+        /*
+         * Make this tag the CURRENT tag.
+         */
+        currentEpc = epc;
+
+        currentItem = item;
+
+        /*
+         * Do NOT clear the weight.
+         *
+         * If the item is already sitting on the scale,
+         * the latest scale reading can immediately be
+         * compared with this newly scanned tag.
+         */
+
+        epcText.setText(
+                epc
+        );
+
+        rfidStatusText.setText(
+                "RFID: tag detected"
+        );
+
+        if (item == null) {
+
+            showUnknownTag();
+
+            return;
+        }
+
+        /*
+         * Display jewellery details.
+         */
+        itemNameText.setText(
+                "Name: "
+                        + item.getName()
+        );
+
+        itemTypeText.setText(
+                "Type: "
+                        + item.getType()
+        );
+
+        materialText.setText(
+                "Material: "
+                        + item.getMaterial()
+        );
+
+        purityText.setText(
+                "Purity: "
+                        + item.getPurity()
+        );
+
+        expectedWeightText.setText(
+                String.format(
+                        Locale.US,
+                        "Expected Weight: %.3f g",
+                        item.getExpectedWeightGrams()
+                )
+        );
+
+        /*
+         * If we already have a scale reading,
+         * compare it immediately.
+         */
+        if (currentWeightGrams != null) {
+
+            evaluateCurrentTag();
+
+        } else {
+
+            resultText.setText(
+                    "WAITING FOR SCALE"
+            );
+
+            differenceText.setText(
+                    "Difference: —"
+            );
+        }
+
+        /*
+         * Add / update this tag in our multi-tag list.
+         */
+        updateScannedTag(item);
+    }
+
+    // ============================================================
+    // UNKNOWN TAG
+    // ============================================================
+
+    private void showUnknownTag() {
+
+        itemNameText.setText(
+                "Name: Unknown Tag"
+        );
+
+        itemTypeText.setText(
+                "Type: —"
+        );
+
+        materialText.setText(
+                "Material: —"
+        );
+
+        purityText.setText(
+                "Purity: —"
+        );
+
+        expectedWeightText.setText(
+                "Expected Weight: —"
+        );
+
+        resultText.setText(
+                "UNKNOWN TAG"
+        );
+
+        differenceText.setText(
+                "EPC is not registered"
+        );
+
+        resultText.setBackgroundColor(
+                0xFF777777
+        );
+    }
+
+    // ============================================================
+    // WEIGHT COMPARISON
+    // ============================================================
+
+    private void evaluateCurrentTag() {
+
+        if (
+                currentItem == null
+                        || currentWeightGrams == null
+        ) {
+
+            return;
+        }
+
+        double expected =
+                currentItem
+                        .getExpectedWeightGrams();
+
+        double actual =
+                currentWeightGrams;
+
+        double difference =
+                actual - expected;
+
+        double absoluteDifference =
+                Math.abs(difference);
+
+        boolean matched =
+                absoluteDifference
+                        <= WEIGHT_TOLERANCE_GRAMS;
+
+        // --------------------------------------------------------
+        // Difference display
+        // --------------------------------------------------------
+
+        differenceText.setText(
+                String.format(
+                        Locale.US,
+                        "Difference: %+.3f g",
+                        difference
+                )
+        );
+
+        // --------------------------------------------------------
+        // Result
+        // --------------------------------------------------------
+
+        if (matched) {
+
+            resultText.setText(
+                    "✓ MATCH"
+            );
+
+            resultText.setBackgroundColor(
+                    0xFF2E7D32
+            );
+
+        } else {
+
+            resultText.setText(
+                    "✗ MISMATCH"
+            );
+
+            resultText.setBackgroundColor(
+                    0xFFC62828
+            );
+        }
+
+        /*
+         * Update the record for this EPC.
+         */
+        ScanRecord record =
+                scannedTags.get(currentEpc);
+
+        if (record != null) {
+
+            record.actualWeight =
+                    actual;
+
+            record.difference =
+                    difference;
+
+            record.matched =
+                    matched;
+
+            updateScannedTagsText();
+        }
+    }
+
+    // ============================================================
+    // MULTIPLE TAGS
+    // ============================================================
+
+    private void updateScannedTag(
+            JewelleryItem item
+    ) {
+
+        ScanRecord record =
+                scannedTags.get(
+                        item.getEpc()
+                );
+
+        if (record == null) {
+
+            record =
+                    new ScanRecord();
+
+            record.epc =
+                    item.getEpc();
+
+            record.item =
+                    item;
+
+            scannedTags.put(
+                    item.getEpc(),
+                    record
+            );
+        }
+
+        /*
+         * If there is already a current scale reading,
+         * use it for this tag.
+         */
+        if (currentWeightGrams != null) {
+
+            record.actualWeight =
+                    currentWeightGrams;
+
+            double difference =
+                    currentWeightGrams
+                            - item.getExpectedWeightGrams();
+
+            record.difference =
+                    difference;
+
+            record.matched =
+                    Math.abs(difference)
+                            <= WEIGHT_TOLERANCE_GRAMS;
+        }
+
+        updateScannedTagsText();
+    }
+
+    // ============================================================
+    // MULTI TAG UI
+    // ============================================================
+
+    private void updateScannedTagsText() {
+
+        if (scannedTags.isEmpty()) {
+
+            scannedTagsText.setText(
+                    "No tags scanned"
+            );
+
+            return;
+        }
+
+        StringBuilder builder =
+                new StringBuilder();
+
+        int count = 1;
+
+        for (
+                ScanRecord record :
+                scannedTags.values()
+        ) {
+
+            builder.append(
+                    count++
+            ).append(". ");
+
+            builder.append(
+                    record.item.getName()
+            );
+
+            builder.append("\n");
+
+            builder.append(
+                    "EPC: "
+            );
+
+            builder.append(
+                    record.epc
+            );
+
+            builder.append("\n");
+
+            builder.append(
+                    String.format(
+                            Locale.US,
+                            "Expected: %.3f g",
+                            record.item
+                                    .getExpectedWeightGrams()
+                    )
+            );
+
+            builder.append("\n");
+
+            if (record.actualWeight != null) {
+
+                builder.append(
+                        String.format(
+                                Locale.US,
+                                "Actual: %.3f g",
+                                record.actualWeight
+                        )
+                );
+
+                builder.append("\n");
+
+                builder.append(
+                        String.format(
+                                Locale.US,
+                                "Difference: %+.3f g",
+                                record.difference
+                        )
+                );
+
+                builder.append("\n");
+
+                builder.append(
+                        record.matched
+                                ? "Result: MATCH ✓"
+                                : "Result: MISMATCH ✗"
+                );
+
+            } else {
+
+                builder.append(
+                        "Actual: Waiting for scale"
+                );
+
+                builder.append("\n");
+
+                builder.append(
+                        "Result: WAITING"
+                );
+            }
+
+            builder.append(
+                    "\n\n"
+            );
+        }
+
+        scannedTagsText.setText(
+                builder.toString()
+        );
+    }
+
+    // ============================================================
+    // RESET CURRENT TAG
+    // ============================================================
+
+    private void resetCurrentTag() {
+
+        currentEpc = null;
+
+        currentItem = null;
+
+        currentWeightGrams = null;
+
+        showEmptyScan();
+    }
+
+    // ============================================================
+    // EMPTY STATE
+    // ============================================================
+
+    private void showEmptyScan() {
+
+        epcText.setText(
+                "—"
+        );
+
+        itemNameText.setText(
+                "Name: —"
+        );
+
+        itemTypeText.setText(
+                "Type: —"
+        );
+
+        materialText.setText(
+                "Material: —"
+        );
+
+        purityText.setText(
+                "Purity: —"
+        );
+
+        expectedWeightText.setText(
+                "Expected Weight: —"
+        );
+
+        liveWeightText.setText(
+                "—"
+        );
+
+        resultText.setText(
+                "WAITING"
+        );
+
+        resultText.setBackgroundColor(
+                0xFF777777
+        );
+
+        differenceText.setText(
+                "Difference: —"
+        );
+
+        rfidStatusText.setText(
+                "RFID: idle"
+        );
+    }
+
+    // ============================================================
+    // USB ATTACH INTENT
+    // ============================================================
+
+    @Override
+    protected void onNewIntent(
+            Intent intent
+    ) {
+
         super.onNewIntent(intent);
+
         handleLaunchIntent(intent);
     }
 
-    private void handleLaunchIntent(Intent intent) {
-        if (intent != null && UsbManager.ACTION_USB_DEVICE_ATTACHED.equals(intent.getAction())) {
+    private void handleLaunchIntent(
+            Intent intent
+    ) {
+
+        if (
+                intent != null
+                        && UsbManager
+                        .ACTION_USB_DEVICE_ATTACHED
+                        .equals(intent.getAction())
+        ) {
+
             findAndConnect();
         }
     }
 
+    // ============================================================
+    // DESTROY
+    // ============================================================
+
     @Override
     protected void onDestroy() {
+
         super.onDestroy();
+
         closeConnection();
+
         if (rfidManager != null) {
+
             rfidManager.release();
         }
+
         try {
-            unregisterReceiver(usbReceiver);
+
+            unregisterReceiver(
+                    usbReceiver
+            );
+
         } catch (IllegalArgumentException ignored) {
         }
+    }
+
+    // ============================================================
+    // SCAN RECORD
+    // ============================================================
+
+    private static class ScanRecord {
+
+        String epc;
+
+        JewelleryItem item;
+
+        Double actualWeight;
+
+        double difference;
+
+        boolean matched;
     }
 }

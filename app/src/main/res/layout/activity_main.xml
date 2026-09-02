@@ -1,236 +1,357 @@
 <?xml version="1.0" encoding="utf-8"?>
+
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
 
-<LinearLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="12dp">
-
-    <!-- ============ Scale connection status / controls ============ -->
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="No device connected"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:paddingBottom="8dp" />
-
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingBottom="8dp">
-
-        <Spinner
-            android:id="@+id/baudSpinner"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1" />
-
-        <Button
-            android:id="@+id/connectButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Connect" />
-
-        <Button
-            android:id="@+id/clearButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Clear Log" />
-    </LinearLayout>
-
-    <!-- ============ RFID status row ============ -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingBottom="8dp">
-
-        <TextView
-            android:id="@+id/rfidStatusText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="RFID: idle"
-            android:textSize="13sp" />
-
-        <Button
-            android:id="@+id/rfidToggleButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Start Scan" />
-    </LinearLayout>
-
-    <!-- ============ Match / Mismatch verdict card ============ -->
-    <LinearLayout
-        android:id="@+id/verdictCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="@color/status_unknown"
-        android:padding="14dp"
-        android:layout_marginBottom="8dp">
+        android:padding="16dp">
+
+        <!-- ================= HEADER ================= -->
 
         <TextView
-            android:id="@+id/verdictLabel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="AWAITING TAG"
-            android:textColor="#FFFFFF"
+            android:text="Jewellery RFID &amp; Weighing"
+            android:textSize="22sp"
             android:textStyle="bold"
-            android:textSize="18sp"
-            android:gravity="center" />
+            android:textColor="#222222"
+            android:paddingBottom="16dp" />
+
+        <!-- ================= SCALE CONNECTION ================= -->
 
         <TextView
-            android:id="@+id/itemNameText"
+            android:id="@+id/statusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Item: —"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:paddingTop="10dp" />
+            android:text="No device connected"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#444444"
+            android:paddingBottom="8dp" />
 
-        <TextView
-            android:id="@+id/skuText"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="SKU: —"
-            android:textColor="#DDDDDD"
-            android:textSize="13sp" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingBottom="16dp">
 
-        <TextView
-            android:id="@+id/epcText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="EPC: —"
-            android:textColor="#DDDDDD"
-            android:textSize="13sp"
-            android:fontFamily="monospace" />
+            <Spinner
+                android:id="@+id/baudSpinner"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
 
-        <TextView
-            android:id="@+id/stockText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="In stock: —"
-            android:textColor="#DDDDDD"
-            android:textSize="13sp" />
+            <Button
+                android:id="@+id/connectButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Connect" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#33FFFFFF"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="10dp" />
+            <Button
+                android:id="@+id/clearButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Clear" />
+
+        </LinearLayout>
+
+        <!-- ================= TWO COLUMN AREA ================= -->
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
+            <!-- ================================================= -->
+            <!-- LEFT COLUMN : RFID / JEWELLERY -->
+            <!-- ================================================= -->
+
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:padding="12dp"
+                android:background="#EEEEEE">
 
                 <TextView
-                    android:textColor="#CCCCCC"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="RFID / Jewellery"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#222222" />
+
+                <!-- RFID status -->
+
+                <TextView
+                    android:id="@+id/rfidStatusText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="RFID: idle"
+                    android:textSize="13sp"
+                    android:textColor="#555555" />
+
+                <!-- Start / Stop RFID -->
+
+                <Button
+                    android:id="@+id/rfidToggleButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Start Scan" />
+
+                <!-- ================= EPC ================= -->
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="EPC"
                     android:textSize="12sp"
-                    android:text="Expected weight"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
+                    android:textStyle="bold"
+                    android:textColor="#666666" />
+
+                <TextView
+                    android:id="@+id/epcText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="—"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#000000"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+
+                <!-- ================= JEWELLERY DETAILS ================= -->
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="Jewellery Details"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333" />
+
+                <TextView
+                    android:id="@+id/itemNameText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Name: —"
+                    android:textSize="15sp"
+                    android:textColor="#222222" />
+
+                <TextView
+                    android:id="@+id/itemTypeText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="Type: —"
+                    android:textSize="14sp"
+                    android:textColor="#444444" />
+
+                <TextView
+                    android:id="@+id/materialText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="Material: —"
+                    android:textSize="14sp"
+                    android:textColor="#444444" />
+
+                <TextView
+                    android:id="@+id/purityText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="Purity: —"
+                    android:textSize="14sp"
+                    android:textColor="#444444" />
 
                 <TextView
                     android:id="@+id/expectedWeightText"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="—"
-                    android:textColor="#FFFFFF"
+                    android:layout_marginTop="8dp"
+                    android:text="Expected Weight: —"
+                    android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textSize="20sp" />
+                    android:textColor="#222222" />
+
+                <!-- ================= RESULT ================= -->
+
+                <TextView
+                    android:id="@+id/resultText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:padding="10dp"
+                    android:gravity="center"
+                    android:text="WAITING"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:background="#777777" />
+
+                <TextView
+                    android:id="@+id/differenceText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="Difference: —"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="#444444" />
+
+                <!-- Clear current EPC -->
+
+                <Button
+                    android:id="@+id/resetScanButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="Clear Current Tag" />
+
             </LinearLayout>
+
+            <!-- ================= DIVIDER ================= -->
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:background="#CCCCCC" />
+
+            <!-- ================================================= -->
+            <!-- RIGHT COLUMN : SCALE -->
+            <!-- ================================================= -->
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:padding="12dp">
 
                 <TextView
-                    android:textColor="#CCCCCC"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Scale"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#222222" />
+
+                <!-- Current weight -->
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:text="Current Weight"
                     android:textSize="12sp"
-                    android:text="Scale reading"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
+                    android:textStyle="bold"
+                    android:textColor="#666666" />
 
                 <TextView
                     android:id="@+id/liveWeightText"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
                     android:text="—"
-                    android:textColor="#FFFFFF"
+                    android:textSize="30sp"
                     android:textStyle="bold"
-                    android:textSize="20sp" />
+                    android:textColor="#222222" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="grams"
+                    android:textSize="12sp"
+                    android:textColor="#777777" />
+
+                <!-- ================= RAW SERIAL ================= -->
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:text="Raw Serial Data"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#666666" />
+
+                <TextView
+                    android:id="@+id/dataText"
+                    android:layout_width="match_parent"
+                    android:layout_height="220dp"
+                    android:layout_marginTop="6dp"
+                    android:background="#111111"
+                    android:fontFamily="monospace"
+                    android:textColor="#00FF00"
+                    android:textSize="12sp"
+                    android:padding="10dp"
+                    android:gravity="top|start"
+                    android:scrollbars="vertical"
+                    android:textIsSelectable="true" />
+
+                <!-- ================= MANUAL SERIAL ================= -->
+
+                <EditText
+                    android:id="@+id/sendEditText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:hint="Type data to send..."
+                    android:singleLine="true" />
+
+                <Button
+                    android:id="@+id/sendButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Send" />
+
             </LinearLayout>
+
         </LinearLayout>
 
-        <Button
-            android:id="@+id/resetScanButton"
+        <!-- ================================================= -->
+        <!-- MULTIPLE SCANNED TAGS -->
+        <!-- ================================================= -->
+
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Reset / Clear Scan" />
+            android:layout_marginTop="20dp"
+            android:text="Scanned Jewellery"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#222222" />
+
+        <TextView
+            android:id="@+id/scannedTagsText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="#F5F5F5"
+            android:padding="12dp"
+            android:text="No tags scanned"
+            android:textSize="13sp"
+            android:textColor="#333333"
+            android:fontFamily="monospace" />
 
     </LinearLayout>
 
-    <!-- ============ Raw serial log (diagnostics) ============ -->
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Raw scale data"
-        android:textStyle="bold"
-        android:textSize="13sp"
-        android:paddingBottom="4dp" />
-
-    <TextView
-        android:id="@+id/dataText"
-        android:layout_width="match_parent"
-        android:layout_height="150dp"
-        android:background="#111111"
-        android:fontFamily="monospace"
-        android:textColor="#00FF00"
-        android:textSize="12sp"
-        android:padding="8dp"
-        android:scrollbars="vertical"
-        android:text="" />
-
-    <!-- ============ Send row (manual commands to scale) ============ -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingTop="8dp">
-
-        <EditText
-            android:id="@+id/sendEditText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="Type data to send..." />
-
-        <Button
-            android:id="@+id/sendButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Send" />
-    </LinearLayout>
-
-</LinearLayout>
 </ScrollView>
