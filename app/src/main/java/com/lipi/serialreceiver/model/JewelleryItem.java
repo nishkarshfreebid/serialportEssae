@@ -8,6 +8,7 @@ public class JewelleryItem {
     private final String material;
     private final double expectedWeightGrams;
     private final String purity;
+    private final String imageName;
 
     public JewelleryItem(
             String epc,
@@ -15,7 +16,8 @@ public class JewelleryItem {
             String type,
             String material,
             double expectedWeightGrams,
-            String purity) {
+            String purity,
+            String imageName) {
 
         this.epc = epc;
         this.name = name;
@@ -23,6 +25,7 @@ public class JewelleryItem {
         this.material = material;
         this.expectedWeightGrams = expectedWeightGrams;
         this.purity = purity;
+        this.imageName = imageName;
     }
 
     public String getEpc() {
@@ -47,5 +50,9 @@ public class JewelleryItem {
 
     public String getPurity() {
         return purity;
+    }
+
+    public String getImageName() {
+        return imageName;
     }
 }

@@ -23,7 +23,8 @@ public class JewelleryRepository {
                         "Ring",
                         "Gold",
                         48.636,
-                        "22K"
+                        "22K",
+                        "goldring"
                 )
         );
 
@@ -35,7 +36,8 @@ public class JewelleryRepository {
                         "Chain",
                         "Gold",
                         32.450,
-                        "22K"
+                        "22K",
+                        "goldchain"
                 )
         );
 
@@ -47,7 +49,8 @@ public class JewelleryRepository {
                         "Bracelet",
                         "Gold",
                         75.210,
-                        "22K"
+                        "22K",
+                        "goldbracelet"
                 )
         );
 
@@ -59,7 +62,8 @@ public class JewelleryRepository {
                         "Necklace",
                         "Gold",
                         84.250,
-                        "22K"
+                        "22K",
+                        "goldnecklace"
                 )
         );
 
@@ -67,11 +71,12 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE983EA",
                 new JewelleryItem(
                         "E28011B0A502006E7CE983EA",
-                        "Gold Pendant - Round",
+                        "goldpendant",
                         "Pendant",
                         "Gold",
                         18.450,
-                        "18K"
+                        "18K",
+                        "goldpendant"
                 )
         );
 
@@ -79,11 +84,12 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE983FA",
                 new JewelleryItem(
                         "E28011B0A502006E7CE983FA",
-                        "Gold Earrings - Drop",
+                        "goldearing",
                         "Earrings",
                         "Gold",
                         12.680,
-                        "22K"
+                        "22K",
+                        "goldearing"
                 )
         );
 
@@ -91,11 +97,12 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE983DA",
                 new JewelleryItem(
                         "E28011B0A502006E7CE983DA",
-                        "Gold Ring - Diamond",
+                        "goldring",
                         "Ring",
                         "Gold",
                         27.320,
-                        "22K"
+                        "22K",
+                        "goldring"
                 )
         );
 
@@ -103,11 +110,12 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE9A93A",
                 new JewelleryItem(
                         "E28011B0A502006E7CE9A93A",
-                        "Gold Bracelet - Designer",
+                        "goldbracelet",
                         "Bracelet",
                         "Gold",
                         54.910,
-                        "22K"
+                        "22K",
+                        "goldbracelet"
                 )
         );
 
@@ -119,7 +127,8 @@ public class JewelleryRepository {
                         "Chain",
                         "Gold",
                         41.275,
-                        "22K"
+                        "22K",
+                        "goldchain"
                 )
         );
 
@@ -131,7 +140,8 @@ public class JewelleryRepository {
                         "Pendant",
                         "Gold",
                         22.840,
-                        "22K"
+                        "22K",
+                        "pendant_diamond"
                 )
         );
 
