@@ -71,7 +71,7 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE983EA",
                 new JewelleryItem(
                         "E28011B0A502006E7CE983EA",
-                        "goldpendant",
+                        "Gold Pendant - Designer",
                         "Pendant",
                         "Gold",
                         18.450,
@@ -84,7 +84,7 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE983FA",
                 new JewelleryItem(
                         "E28011B0A502006E7CE983FA",
-                        "goldearing",
+                        "Gold Earing - Diamond",
                         "Earrings",
                         "Gold",
                         12.680,
@@ -97,7 +97,7 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE983DA",
                 new JewelleryItem(
                         "E28011B0A502006E7CE983DA",
-                        "goldring",
+                        "Gold Ring",
                         "Ring",
                         "Gold",
                         27.320,
@@ -110,7 +110,7 @@ public class JewelleryRepository {
                 "E28011B0A502006E7CE9A93A",
                 new JewelleryItem(
                         "E28011B0A502006E7CE9A93A",
-                        "goldbracelet",
+                        "Gold Bracelet",
                         "Bracelet",
                         "Gold",
                         54.910,
