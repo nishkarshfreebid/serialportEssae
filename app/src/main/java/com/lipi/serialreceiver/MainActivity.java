@@ -937,13 +937,9 @@ public class MainActivity extends AppCompatActivity
 
         try {
 
-            double weight =
-                    Double.parseDouble(
-                            values[1]
-                    );
-
-            currentWeightGrams =
-                    weight;
+            // TESTING ONLY
+            double weight = 18.450;
+            currentWeightGrams = weight;
 
             // -----------------------------------------------
             // SMALL RECEIVED WEIGHT

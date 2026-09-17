@@ -145,7 +145,7 @@ public class RfidManager {
 
                 scanning = true;
 
-                setStatusLed(LedColor.YELLOW);
+                //setStatusLed(LedColor.YELLOW);
 
                 Log.d(
                         TAG,
@@ -249,6 +249,10 @@ public class RfidManager {
 // STATUS LED
 // ============================================================
 
+    // ============================================================
+// STATUS LED
+// ============================================================
+
     public void setStatusLed(LedColor color) {
 
         if (reader == null) {
@@ -257,30 +261,39 @@ public class RfidManager {
 
         try {
 
-            // Turn all status outputs OFF first
+            // Always turn everything OFF first
             reader.output1Off();
             reader.output2Off();
             reader.output3Off();
+            reader.output4Off();
 
             switch (color) {
 
-                case RED:
+                case YELLOW:
+                    // GPIO 1 + 2 + 3 + 4
                     reader.output1On();
+                    reader.output2On();
+                    reader.output3On();
+                    reader.output4On();
+                    break;
+
+                case RED:
+                    // GPIO 1 + 2 + 4
+                    reader.output1On();
+                    reader.output2On();
+                    reader.output4On();
                     break;
 
                 case GREEN:
-                    reader.output2On();
-                    break;
-
-                case YELLOW:
-                    // RED + GREEN = YELLOW
+                    // GPIO 1 + 2 + 3
                     reader.output1On();
                     reader.output2On();
+                    reader.output3On();
                     break;
 
                 case OFF:
                 default:
-                    // Everything already OFF
+                    // Already OFF
                     break;
             }
 
@@ -473,12 +486,15 @@ public class RfidManager {
 
             scanning = false;
 
-            // Make absolutely sure LEDs are OFF
             setStatusLed(LedColor.OFF);
+
             reader.androidLedSwitch(false);
+
             reader.output1Off();
             reader.output2Off();
             reader.output3Off();
+            reader.output4Off();
+
             reader.free();
 
         } catch (Exception e) {
