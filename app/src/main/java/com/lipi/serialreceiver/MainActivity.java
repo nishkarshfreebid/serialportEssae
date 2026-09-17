@@ -1034,98 +1034,138 @@ public class MainActivity extends AppCompatActivity
 
     private void setupRfid() {
 
-        rfidManager =
-                new RfidManager();
+        rfidManager = new RfidManager();
 
         rfidManager.setListener(
                 new RfidManager.Listener() {
 
                     @Override
-                    public void onTagRead(
-                            String epc,
-                            String rssi) {
+                    public void onTagRead(String epc, String rssi) {
 
                         mainHandler.post(
-                                () ->
-                                        onTagScanned(
-                                                epc
-                                        )
+                                () -> onTagScanned(epc)
                         );
                     }
 
                     @Override
-                    public void onError(
-                            String message) {
+                    public void onError(String message) {
 
-                        mainHandler.post(
-                                () -> {
+                        mainHandler.post(() -> {
 
-                                    rfidStatusText.setText(
-                                            "RFID: error"
-                                    );
-
-                                    Toast.makeText(
-                                            MainActivity.this,
-                                            message,
-                                            Toast.LENGTH_LONG
-                                    ).show();
-                                }
-                        );
-                    }
-                }
-        );
-
-        boolean ready =
-                rfidManager.init(
-                        this
-                );
-
-        rfidStatusText.setText(
-                ready
-                        ? "● Ready"
-                        : "● RFID unavailable"
-        );
-
-        rfidToggleButton.setEnabled(
-                ready
-        );
-
-        rfidToggleButton.setOnClickListener(
-                v -> {
-
-                    if (
-                            rfidManager.isScanning()
-                    ) {
-
-                        rfidManager.stopScan();
-
-                        rfidToggleButton.setText(
-                                "START RFID SCAN"
-                        );
-
-                        rfidStatusText.setText(
-                                "● Scan stopped"
-                        );
-
-                    } else {
-
-                        boolean started =
-                                rfidManager
-                                        .startContinuousScan();
-
-                        if (started) {
-
-                            rfidToggleButton.setText(
-                                    "STOP RFID SCAN"
-                            );
+                            // Make sure physical RFID light is OFF
+                            rfidManager.setRfidLed(false);
 
                             rfidStatusText.setText(
-                                    "● Scanning..."
+                                    "RFID: error"
                             );
-                        }
+
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    message,
+                                    Toast.LENGTH_LONG
+                            ).show();
+                        });
                     }
                 }
         );
+
+        // ============================================================
+        // INITIALIZE RFID
+        // ============================================================
+
+        boolean ready = rfidManager.init(this);
+
+        if (ready) {
+
+            // RFID is ready but NOT scanning
+            rfidManager.setRfidLed(false);
+
+            rfidStatusText.setText(
+                    "● Ready"
+            );
+
+        } else {
+
+            rfidStatusText.setText(
+                    "● RFID unavailable"
+            );
+        }
+
+        rfidToggleButton.setEnabled(ready);
+
+        // ============================================================
+        // START / STOP RFID
+        // ============================================================
+
+        rfidToggleButton.setOnClickListener(v -> {
+
+            if (rfidManager.isScanning()) {
+
+                // ----------------------------------------------------
+                // STOP RFID SCAN
+                // ----------------------------------------------------
+
+                boolean stopped =
+                        rfidManager.stopScan();
+
+                // Physical RFID light OFF
+                rfidManager.setRfidLed(false);
+
+                rfidToggleButton.setText(
+                        "START RFID SCAN"
+                );
+
+                rfidStatusText.setText(
+                        stopped
+                                ? "● Scan stopped"
+                                : "● Scan stop failed"
+                );
+
+            } else {
+
+                // ----------------------------------------------------
+                // START RFID SCAN
+                // ----------------------------------------------------
+
+                boolean started =
+                        rfidManager.startContinuousScan();
+
+                if (started) {
+
+                    // Physical RFID light ON
+                    rfidManager.setStatusLed(
+                            RfidManager.LedColor.YELLOW
+                    );
+
+                    rfidToggleButton.setText(
+                            "STOP RFID SCAN"
+                    );
+
+                    rfidStatusText.setText(
+                            "● Scanning..."
+                    );
+
+                } else {
+
+                    // Start failed -> physical light OFF
+                    rfidManager.setStatusLed(
+                            RfidManager.LedColor.OFF
+                    );
+
+                    rfidToggleButton.setText(
+                            "START RFID SCAN"
+                    );
+
+                    rfidStatusText.setText(
+                            "● RFID start failed"
+                    );
+                }
+            }
+        });
+
+        // ============================================================
+        // RESET
+        // ============================================================
 
         resetScanButton.setOnClickListener(
                 v -> resetCurrentTag()
@@ -1146,7 +1186,7 @@ public class MainActivity extends AppCompatActivity
 
             return;
         }
-
+        rfidManager.successNotify();
         epc =
                 epc.trim().toUpperCase();
 
@@ -1190,6 +1230,10 @@ public class MainActivity extends AppCompatActivity
         // -----------------------------------------------
 
         if (item == null) {
+
+            rfidManager.setStatusLed(
+                    RfidManager.LedColor.RED
+            );
 
             showUnknownTag();
 
@@ -1407,22 +1451,20 @@ public class MainActivity extends AppCompatActivity
 
         if (matched) {
 
-            resultText.setText(
-                    "✓ MATCHED"
-            );
+            resultText.setText("✓ MATCHED");
+            resultText.setBackgroundColor(0xFF2E7D32);
 
-            resultText.setBackgroundColor(
-                    0xFF2E7D32
+            rfidManager.setStatusLed(
+                    RfidManager.LedColor.GREEN
             );
 
         } else {
 
-            resultText.setText(
-                    "✗ MISMATCH"
-            );
+            resultText.setText("✗ MISMATCH");
+            resultText.setBackgroundColor(0xFFC62828);
 
-            resultText.setBackgroundColor(
-                    0xFFC62828
+            rfidManager.setStatusLed(
+                    RfidManager.LedColor.RED
             );
         }
 
@@ -1751,7 +1793,8 @@ public class MainActivity extends AppCompatActivity
         closeConnection();
 
         if (rfidManager != null) {
-
+            rfidManager.setRfidLed(false);
+            rfidManager.setAndroidLed(false);
             rfidManager.release();
         }
 

@@ -3,116 +3,507 @@ package com.lipi.serialreceiver.rfid;
 import android.content.Context;
 import android.util.Log;
 
-import com.rscja.deviceapi.RFIDWithUHFUART;
+import com.rscja.deviceapi.RFIDWithUHFA4;
 import com.rscja.deviceapi.entity.UHFTAGInfo;
 import com.rscja.deviceapi.exception.ConfigurationException;
 import com.rscja.deviceapi.interfaces.IUHFInventoryCallback;
 
-/**
- * Thin wrapper around the Chainway DeviceAPI UHF (RFID) module.
- *
- * This targets the device's built-in UHF reader (com.rscja.deviceapi.RFIDWithUHFUART),
- * which is separate from the USB-serial connection used for the weighing scale — the two
- * run independently and don't compete for the same port.
- *
- * Usage:
- *   rfidManager = new RfidManager();
- *   rfidManager.init(context);
- *   rfidManager.setListener(tag -> { ... });
- *   rfidManager.startContinuousScan();
- *   ...
- *   rfidManager.stopScan();
- *   rfidManager.release();
- */
 public class RfidManager {
 
     private static final String TAG = "RfidManager";
 
-    /** Callback for the UI layer; delivered on a background thread (see docs for callback()). */
     public interface Listener {
         void onTagRead(String epc, String rssi);
         void onError(String message);
     }
 
-    private RFIDWithUHFUART reader;
+    private RFIDWithUHFA4 reader;
     private Listener listener;
-    private volatile boolean scanning = false;
 
+    private volatile boolean scanning = false;
+    public enum LedColor {
+        OFF,
+        YELLOW,
+        GREEN,
+        RED
+    }
     public void setListener(Listener listener) {
         this.listener = listener;
     }
 
-    /** Initializes the on-board UHF module. Call once, e.g. in Activity.onCreate(). */
+    // ============================================================
+    // INIT
+    // ============================================================
+
     public boolean init(Context context) {
+
         try {
-            reader = RFIDWithUHFUART.getInstance();
+
+            reader = RFIDWithUHFA4.getInstance();
+
         } catch (ConfigurationException e) {
-            Log.e(TAG, "RFID module not supported on this device", e);
-            notifyError("RFID module not supported on this device: " + e.getMessage());
+
+            Log.e(
+                    TAG,
+                    "RFID module not supported on this device",
+                    e
+            );
+
+            notifyError(
+                    "RFID module not supported on this device: "
+                            + e.getMessage()
+            );
+
+            return false;
+        }
+
+        if (reader == null) {
+
+            notifyError("RFID reader instance is null");
+
             return false;
         }
 
         boolean ok = reader.init(context);
+
         if (!ok) {
-            notifyError("Failed to initialize RFID reader");
+
+            notifyError(
+                    "Failed to initialize RFID reader"
+            );
+
             return false;
         }
 
-        reader.setInventoryCallback(new IUHFInventoryCallback() {
-            @Override
-            public void callback(UHFTAGInfo tagInfo) {
-                if (tagInfo == null || tagInfo.getEPC() == null) return;
-                if (listener != null) {
-                    listener.onTagRead(tagInfo.getEPC(), tagInfo.getRssi());
+        // --------------------------------------------------------
+        // Initially keep RFID scan LED OFF
+        // --------------------------------------------------------
+
+        try {
+            setStatusLed(LedColor.OFF);
+        } catch (Exception e) {
+            Log.w(TAG, "Unable to switch RFID LED off", e);
+        }
+
+        // --------------------------------------------------------
+        // Inventory callback
+        // --------------------------------------------------------
+
+        reader.setInventoryCallback(
+                new IUHFInventoryCallback() {
+
+                    @Override
+                    public void callback(UHFTAGInfo tagInfo) {
+
+                        if (tagInfo == null) {
+                            return;
+                        }
+
+                        if (tagInfo.getEPC() == null) {
+                            return;
+                        }
+
+                        if (listener != null) {
+
+                            listener.onTagRead(
+                                    tagInfo.getEPC(),
+                                    tagInfo.getRssi()
+                            );
+                        }
+                    }
                 }
-            }
-        });
+        );
 
         return true;
     }
 
-    /** Starts continuous inventory (repeated tag reads until stopScan() is called). */
+    // ============================================================
+    // START RFID
+    // ============================================================
+
     public boolean startContinuousScan() {
+
         if (reader == null) {
-            notifyError("RFID reader not initialized");
+
+            notifyError(
+                    "RFID reader not initialized"
+            );
+
             return false;
         }
-        if (scanning) return true;
-        boolean started = reader.startInventoryTag();
-        scanning = started;
-        if (!started) {
-            notifyError("Failed to start RFID scan");
+
+        if (scanning) {
+            return true;
         }
-        return started;
+
+        try {
+
+            boolean started =
+                    reader.startInventoryTag();
+
+            if (started) {
+
+                scanning = true;
+
+                setStatusLed(LedColor.YELLOW);
+
+                Log.d(
+                        TAG,
+                        "RFID scanning started - YELLOW"
+                );
+
+            } else {
+
+                scanning = false;
+
+                setStatusLed(LedColor.OFF);
+
+                notifyError(
+                        "Failed to start RFID scan"
+                );
+            }
+
+            return started;
+
+        } catch (Exception e) {
+
+            scanning = false;
+
+            try {
+                setStatusLed(LedColor.OFF);
+            } catch (Exception ignored) {
+            }
+
+            Log.e(
+                    TAG,
+                    "Error starting RFID scan",
+                    e
+            );
+
+            notifyError(
+                    "RFID scan error: "
+                            + e.getMessage()
+            );
+
+            return false;
+        }
     }
 
+    // ============================================================
+    // STOP RFID
+    // ============================================================
+
     public boolean stopScan() {
-        if (reader == null) return false;
-        boolean stopped = reader.stopInventory();
-        scanning = false;
-        return stopped;
+
+        if (reader == null) {
+            return false;
+        }
+
+        try {
+
+            boolean stopped =
+                    reader.stopInventory();
+
+            scanning = false;
+
+            // ---------------------------------------------
+            // RFID SCAN LED OFF
+            // ---------------------------------------------
+
+            setStatusLed(LedColor.OFF);
+
+            Log.d(
+                    TAG,
+                    "RFID scanning stopped - LED OFF"
+            );
+
+            return stopped;
+
+        } catch (Exception e) {
+
+            scanning = false;
+
+            try {
+                setStatusLed(LedColor.OFF);
+            } catch (Exception ignored) {
+            }
+
+            Log.e(
+                    TAG,
+                    "Error stopping RFID scan",
+                    e
+            );
+
+            return false;
+        }
     }
+
+    // ============================================================
+    // IS SCANNING
+    // ============================================================
 
     public boolean isScanning() {
         return scanning;
     }
+// ============================================================
+// STATUS LED
+// ============================================================
 
-    /** Releases the reader. Call in Activity.onDestroy(). */
-    public void release() {
-        if (reader != null) {
-            try {
-                if (scanning) {
-                    reader.stopInventory();
-                }
-                reader.free();
-            } catch (Exception e) {
-                Log.w(TAG, "Error releasing RFID reader", e);
+    public void setStatusLed(LedColor color) {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            // Turn all status outputs OFF first
+            reader.output1Off();
+            reader.output2Off();
+            reader.output3Off();
+
+            switch (color) {
+
+                case RED:
+                    reader.output1On();
+                    break;
+
+                case GREEN:
+                    reader.output2On();
+                    break;
+
+                case YELLOW:
+                    // RED + GREEN = YELLOW
+                    reader.output1On();
+                    reader.output2On();
+                    break;
+
+                case OFF:
+                default:
+                    // Everything already OFF
+                    break;
             }
+
+            Log.d(TAG, "Status LED: " + color);
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TAG,
+                    "Failed to set status LED: " + color,
+                    e
+            );
+        }
+    }
+    // ============================================================
+    // RFID LED
+    // ============================================================
+
+    public void setRfidLed(boolean enabled) {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            reader.rfidLedSwitch(enabled);
+
+            Log.d(
+                    TAG,
+                    "RFID LED: " + enabled
+            );
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TAG,
+                    "Failed to control RFID LED",
+                    e
+            );
         }
     }
 
+    // ============================================================
+    // ANDROID / WORK LED
+    // ============================================================
+
+    public void setAndroidLed(boolean enabled) {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            reader.androidLedSwitch(enabled);
+
+            Log.d(
+                    TAG,
+                    "Android LED: " + enabled
+            );
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TAG,
+                    "Failed to control Android LED",
+                    e
+            );
+        }
+    }
+
+    // ============================================================
+    // ANTENNA LED
+    // ============================================================
+
+    public void setAntennaLed(
+            int antenna,
+            boolean enabled
+    ) {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            reader.antLedSwitch(
+                    antenna,
+                    enabled
+            );
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TAG,
+                    "Failed to control antenna LED",
+                    e
+            );
+        }
+    }
+
+    // ============================================================
+    // SUCCESS LED
+    // ============================================================
+
+    public void successLed() {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            reader.led();
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TAG,
+                    "Failed to trigger RFID LED",
+                    e
+            );
+        }
+    }
+
+    // ============================================================
+    // BUZZER
+    // ============================================================
+
+    public void buzzer() {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            reader.buzzer();
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TAG,
+                    "Failed to trigger buzzer",
+                    e
+            );
+        }
+    }
+
+    // ============================================================
+    // SUCCESS NOTIFICATION
+    // ============================================================
+
+    public void successNotify() {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            reader.successNotify();
+
+        } catch (Exception e) {
+
+            Log.e(
+                    TAG,
+                    "Failed success notification",
+                    e
+            );
+        }
+    }
+
+    // ============================================================
+    // RELEASE
+    // ============================================================
+
+    public void release() {
+
+        if (reader == null) {
+            return;
+        }
+
+        try {
+
+            if (scanning) {
+                reader.stopInventory();
+            }
+
+            scanning = false;
+
+            // Make absolutely sure LEDs are OFF
+            setStatusLed(LedColor.OFF);
+            reader.androidLedSwitch(false);
+            reader.output1Off();
+            reader.output2Off();
+            reader.output3Off();
+            reader.free();
+
+        } catch (Exception e) {
+
+            Log.w(
+                    TAG,
+                    "Error releasing RFID reader",
+                    e
+            );
+        }
+
+        reader = null;
+    }
+
+    // ============================================================
+    // ERROR
+    // ============================================================
+
     private void notifyError(String message) {
-        Log.e(TAG, message);
+
+        Log.e(
+                TAG,
+                message
+        );
+
         if (listener != null) {
             listener.onError(message);
         }
